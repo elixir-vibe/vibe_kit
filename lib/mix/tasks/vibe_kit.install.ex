@@ -6,6 +6,7 @@ if Code.ensure_loaded?(Igniter) do
 
     alias Igniter.Code.Keyword, as: CodeKeyword
     alias Igniter.Project.{Deps, MixProject, TaskAliases}
+    alias Rewrite.Source
 
     @example "mix igniter.install vibe_kit"
     @shortdoc "Installs Elixir Vibe project conventions"
@@ -24,9 +25,9 @@ if Code.ensure_loaded?(Igniter) do
 
     ## Options
 
-    * `--reach` - add Reach and include `reach.check --arch --smells` in CI
-    * `--strict-clones` - run ExDNA as `ex_dna --max-clones 0`
-    * `--ex-slop` - add ExSlop as a dev/test dependency
+    * `--no-reach` - skip Reach and `reach.check --arch --smells`
+    * `--no-strict-clones` - run ExDNA as `ex_dna` instead of `ex_dna --max-clones 0`
+    * `--no-ex-slop` - skip ExSlop and `.credo.exs` plugin setup
     """
 
     @impl Igniter.Mix.Task
@@ -42,11 +43,7 @@ if Code.ensure_loaded?(Igniter) do
           strict_clones: :boolean,
           ex_slop: :boolean
         ],
-        defaults: [
-          reach: false,
-          strict_clones: false,
-          ex_slop: false
-        ],
+        defaults: default_options(),
         aliases: [],
         required: []
       }
@@ -54,12 +51,14 @@ if Code.ensure_loaded?(Igniter) do
 
     @impl Igniter.Mix.Task
     def igniter(igniter) do
-      options = igniter.args.options
+      options = Keyword.merge(default_options(), igniter.args.options)
 
       igniter
       |> add_dependencies(options)
       |> put_preferred_ci_env()
       |> TaskAliases.add_alias(:ci, ci_steps(options), if_exists: :warn)
+      |> configure_ex_slop(options)
+      |> configure_reach(options)
     end
 
     defp deps(argv) do
@@ -82,8 +81,12 @@ if Code.ensure_loaded?(Igniter) do
         latest_dep("dialyxir"),
         latest_dep("ex_dna")
       ]
-      |> maybe_add(options[:reach], latest_dep("reach"))
-      |> maybe_add(options[:ex_slop], latest_dep("ex_slop"))
+      |> maybe_add_latest(options[:reach], "reach")
+      |> maybe_add_latest(options[:ex_slop], "ex_slop")
+    end
+
+    defp default_options do
+      [reach: true, strict_clones: true, ex_slop: true]
     end
 
     defp parse_options(argv) do
@@ -92,7 +95,7 @@ if Code.ensure_loaded?(Igniter) do
           strict: [reach: :boolean, strict_clones: :boolean, ex_slop: :boolean]
         )
 
-      options
+      Keyword.merge(default_options(), options)
     end
 
     defp latest_dep(package) do
@@ -113,8 +116,8 @@ if Code.ensure_loaded?(Igniter) do
       {name, Keyword.merge(opts, only: [:dev, :test], runtime: false)}
     end
 
-    defp maybe_add(deps, true, dep), do: deps ++ [dep]
-    defp maybe_add(deps, _, _dep), do: deps
+    defp maybe_add_latest(deps, true, package), do: deps ++ [latest_dep(package)]
+    defp maybe_add_latest(deps, _, _package), do: deps
 
     defp ci_steps(options) do
       [
@@ -127,6 +130,56 @@ if Code.ensure_loaded?(Igniter) do
         if(options[:reach], do: "reach.check --arch --smells")
       ]
       |> Enum.reject(&is_nil/1)
+    end
+
+    defp configure_ex_slop(igniter, options) do
+      if options[:ex_slop] do
+        Igniter.create_or_update_file(igniter, ".credo.exs", credo_config(), fn source ->
+          Source.update(source, :content, &patch_credo_config/1)
+        end)
+      else
+        igniter
+      end
+    end
+
+    defp configure_reach(igniter, options) do
+      if options[:reach] do
+        Igniter.create_or_update_file(igniter, ".reach.exs", reach_config(), fn source ->
+          source
+        end)
+      else
+        igniter
+      end
+    end
+
+    defp patch_credo_config(content) do
+      cond do
+        String.contains?(content, "ExSlop") ->
+          content
+
+        String.contains?(content, "plugins: [") ->
+          String.replace(content, "plugins: [", "plugins: [{ExSlop, []}, ", global: false)
+
+        true ->
+          content <> "\n" <> credo_config()
+      end
+    end
+
+    defp credo_config do
+      """
+      %{
+        configs: [
+          %{
+            name: "default",
+            plugins: [{ExSlop, []}]
+          }
+        ]
+      }
+      """
+    end
+
+    defp reach_config do
+      "[]\n"
     end
 
     defp put_preferred_ci_env(igniter) do

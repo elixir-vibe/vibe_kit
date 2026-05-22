@@ -38,7 +38,8 @@ defmodule VibeKit.MixProject do
         "test",
         "credo --strict",
         "dialyzer",
-        "ex_dna"
+        "ex_dna --max-clones 0",
+        "reach.check --arch --smells"
       ]
     ]
   end
@@ -49,6 +50,8 @@ defmodule VibeKit.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
+      {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false},
+      {:reach, "~> 2.6", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end

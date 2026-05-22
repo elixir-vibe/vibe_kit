@@ -2,7 +2,7 @@
 
 Igniter installer for Elixir Vibe project conventions.
 
-It patches new or existing Mix projects with the shared `mix ci` shape used across Elixir Vibe packages:
+It patches new or existing Mix projects with the strict shared `mix ci` shape used across Elixir Vibe packages:
 
 ```elixir
 ci: [
@@ -11,11 +11,25 @@ ci: [
   "test",
   "credo --strict",
   "dialyzer",
-  "ex_dna"
+  "ex_dna --max-clones 0",
+  "reach.check --arch --smells"
 ]
 ```
 
-It also adds `def cli, do: [preferred_envs: [ci: :test]]` and the required quality-tool dependencies.
+It also adds `def cli, do: [preferred_envs: [ci: :test]]`, quality-tool dependencies, a baseline `.reach.exs`, and a `.credo.exs` that enables the ExSlop recommended plugin checks:
+
+```elixir
+%{
+  configs: [
+    %{
+      name: "default",
+      plugins: [{ExSlop, []}]
+    }
+  ]
+}
+```
+
+Dependency versions are resolved through Igniter from the latest Hex releases at install time. The generated `.reach.exs` starts as `[]`; add project-specific layer and boundary policies as the project architecture settles.
 
 ## Usage
 
@@ -39,22 +53,12 @@ mix igniter.install vibe_kit
 
 ## Options
 
-Add Reach architecture checks:
+The strict defaults can be disabled when a project needs a lighter setup:
 
 ```sh
-mix igniter.install vibe_kit --reach
-```
-
-Use strict clone detection:
-
-```sh
-mix igniter.install vibe_kit --strict-clones
-```
-
-Add ExSlop as a dev/test dependency:
-
-```sh
-mix igniter.install vibe_kit --ex-slop
+mix igniter.install vibe_kit --no-reach
+mix igniter.install vibe_kit --no-strict-clones
+mix igniter.install vibe_kit --no-ex-slop
 ```
 
 Options can be combined:
@@ -62,8 +66,8 @@ Options can be combined:
 ```sh
 mix igniter.new my_lib \
   --install vibe_kit \
-  --reach \
-  --strict-clones
+  --no-reach \
+  --no-ex-slop
 ```
 
 ## Installation
