@@ -1,4 +1,4 @@
-# VibeSetup
+# VibeKit
 
 Igniter installer for Elixir Vibe project conventions.
 
@@ -22,19 +22,19 @@ It also adds `def cli, do: [preferred_envs: [ci: :test]]` and the required quali
 Create a new project with the conventions installed immediately:
 
 ```sh
-mix igniter.new my_lib --install vibe_setup
+mix igniter.new my_lib --install vibe_kit
 ```
 
 For local development before the package is published:
 
 ```sh
-mix igniter.new my_lib --install vibe_setup@path:/Users/dannote/Development/vibe_setup
+mix igniter.new my_lib --install vibe_kit@path:/Users/dannote/Development/vibe_kit
 ```
 
 Install into an existing project:
 
 ```sh
-mix igniter.install vibe_setup
+mix igniter.install vibe_kit
 ```
 
 ## Options
@@ -42,26 +42,26 @@ mix igniter.install vibe_setup
 Add Reach architecture checks:
 
 ```sh
-mix igniter.install vibe_setup --reach
+mix igniter.install vibe_kit --reach
 ```
 
 Use strict clone detection:
 
 ```sh
-mix igniter.install vibe_setup --strict-clones
+mix igniter.install vibe_kit --strict-clones
 ```
 
 Add ExSlop as a dev/test dependency:
 
 ```sh
-mix igniter.install vibe_setup --ex-slop
+mix igniter.install vibe_kit --ex-slop
 ```
 
 Options can be combined:
 
 ```sh
 mix igniter.new my_lib \
-  --install vibe_setup \
+  --install vibe_kit \
   --reach \
   --strict-clones
 ```
@@ -73,7 +73,7 @@ Add the package to projects that should expose the installer task:
 ```elixir
 def deps do
   [
-    {:vibe_setup, "~> 0.1.0"}
+    {:vibe_kit, "~> 0.1.0"}
   ]
 end
 ```

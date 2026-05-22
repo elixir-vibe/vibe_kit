@@ -1,12 +1,12 @@
-defmodule VibeSetup.MixProject do
+defmodule VibeKit.MixProject do
   use Mix.Project
 
   @version "0.1.0"
-  @source_url "https://github.com/elixir-vibe/vibe_setup"
+  @source_url "https://github.com/elixir-vibe/vibe_kit"
 
   def project do
     [
-      app: :vibe_setup,
+      app: :vibe_kit,
       version: @version,
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,

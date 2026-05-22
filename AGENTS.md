@@ -1,6 +1,6 @@
-# VibeSetup Agent Guidelines
+# VibeKit Agent Guidelines
 
-VibeSetup is an Igniter installer for bootstrapping Elixir Vibe project conventions.
+VibeKit is an Igniter installer for bootstrapping Elixir Vibe project conventions.
 
 ## Development
 

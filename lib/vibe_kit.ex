@@ -1,4 +1,4 @@
-defmodule VibeSetup do
+defmodule VibeKit do
   @moduledoc """
   Igniter installers for Elixir Vibe project conventions.
 

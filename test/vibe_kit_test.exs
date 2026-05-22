@@ -1,10 +1,10 @@
-defmodule VibeSetupTest do
+defmodule VibeKitTest do
   use ExUnit.Case
   import Igniter.Test
 
   test "installer adds base CI conventions" do
     test_project()
-    |> Igniter.compose_task("vibe_setup.install", [])
+    |> Igniter.compose_task("vibe_kit.install", [])
     |> assert_has_patch("mix.exs", """
     + |      aliases: aliases()
     """)
@@ -38,7 +38,7 @@ defmodule VibeSetupTest do
 
   test "installer can add Reach and strict clone checks" do
     test_project()
-    |> Igniter.compose_task("vibe_setup.install", ["--reach", "--strict-clones"])
+    |> Igniter.compose_task("vibe_kit.install", ["--reach", "--strict-clones"])
     |> assert_has_patch("mix.exs", """
     + |      {:reach, "~> 2.6", only: [:dev, :test], runtime: false},
     """)

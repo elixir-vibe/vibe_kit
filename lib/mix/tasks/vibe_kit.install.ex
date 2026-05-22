@@ -1,10 +1,10 @@
 Code.ensure_compiled(Igniter)
 
 if Code.ensure_loaded?(Igniter) do
-  defmodule Mix.Tasks.VibeSetup.Install do
+  defmodule Mix.Tasks.VibeKit.Install do
     use Igniter.Mix.Task
 
-    @example "mix igniter.install vibe_setup"
+    @example "mix igniter.install vibe_kit"
     @shortdoc "Installs Elixir Vibe project conventions"
 
     @moduledoc """
@@ -29,7 +29,7 @@ if Code.ensure_loaded?(Igniter) do
     @impl Igniter.Mix.Task
     def info(argv, _parent) do
       %Igniter.Mix.Task.Info{
-        group: :vibe_setup,
+        group: :vibe_kit,
         adds_deps: deps(argv),
         installs: [],
         example: @example,
@@ -119,7 +119,7 @@ if Code.ensure_loaded?(Igniter) do
     end
   end
 else
-  defmodule Mix.Tasks.VibeSetup.Install do
+  defmodule Mix.Tasks.VibeKit.Install do
     @moduledoc "Installs Elixir Vibe project conventions"
     @shortdoc @moduledoc
 
@@ -128,7 +128,7 @@ else
     @impl Mix.Task
     def run(_argv) do
       Mix.shell().error("""
-      The task 'vibe_setup.install' requires igniter.
+      The task 'vibe_kit.install' requires igniter.
 
       Please install igniter and try again.
 
