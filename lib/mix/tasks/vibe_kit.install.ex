@@ -28,6 +28,8 @@ if Code.ensure_loaded?(Igniter) do
     * `--no-reach` - skip Reach and `reach.check --arch --smells`
     * `--no-strict-clones` - run ExDNA as `ex_dna` instead of `ex_dna --max-clones 0`
     * `--no-ex-slop` - skip ExSlop and `.credo.exs` plugin setup
+    * `--agents-md` - create `AGENTS.md` with project instructions
+    * `--claude-md` - create `CLAUDE.md` with project instructions
     """
 
     @impl Igniter.Mix.Task
@@ -41,7 +43,9 @@ if Code.ensure_loaded?(Igniter) do
         schema: [
           reach: :boolean,
           strict_clones: :boolean,
-          ex_slop: :boolean
+          ex_slop: :boolean,
+          agents_md: :boolean,
+          claude_md: :boolean
         ],
         defaults: default_options(),
         aliases: [],
@@ -59,6 +63,7 @@ if Code.ensure_loaded?(Igniter) do
       |> TaskAliases.add_alias(:ci, ci_steps(options), if_exists: :warn)
       |> configure_ex_slop(options)
       |> configure_reach(options)
+      |> configure_agent_docs(options)
     end
 
     defp deps(argv) do
@@ -86,13 +91,19 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     defp default_options do
-      [reach: true, strict_clones: true, ex_slop: true]
+      [reach: true, strict_clones: true, ex_slop: true, agents_md: false, claude_md: false]
     end
 
     defp parse_options(argv) do
       {options, _, _} =
         OptionParser.parse(argv,
-          strict: [reach: :boolean, strict_clones: :boolean, ex_slop: :boolean]
+          strict: [
+            reach: :boolean,
+            strict_clones: :boolean,
+            ex_slop: :boolean,
+            agents_md: :boolean,
+            claude_md: :boolean
+          ]
         )
 
       Keyword.merge(default_options(), options)
@@ -152,6 +163,18 @@ if Code.ensure_loaded?(Igniter) do
       end
     end
 
+    defp configure_agent_docs(igniter, options) do
+      igniter
+      |> maybe_create_file(options[:agents_md], "AGENTS.md", agents_md())
+      |> maybe_create_file(options[:claude_md], "CLAUDE.md", claude_md())
+    end
+
+    defp maybe_create_file(igniter, true, path, content) do
+      Igniter.create_or_update_file(igniter, path, content, fn source -> source end)
+    end
+
+    defp maybe_create_file(igniter, _enabled, _path, _content), do: igniter
+
     defp patch_credo_config(content) do
       cond do
         String.contains?(content, "ExSlop") ->
@@ -180,6 +203,41 @@ if Code.ensure_loaded?(Igniter) do
 
     defp reach_config do
       "[]\n"
+    end
+
+    defp agents_md do
+      """
+      # Agent Guidelines
+
+      ## Development
+
+      ```sh
+      mix deps.get
+      mix ci
+      ```
+
+      ## Project conventions
+
+      - Use the project Mix aliases; prefer `mix ci` for the full validation suite.
+      - Keep changes small, tested, and formatted.
+      - Prefer Igniter APIs for repeatable project setup changes.
+      - Do not publish, tag, or create releases unless explicitly requested.
+      """
+    end
+
+    defp claude_md do
+      """
+      # CLAUDE.md
+
+      Follow the repository instructions in `AGENTS.md` when present.
+
+      ## Development
+
+      ```sh
+      mix deps.get
+      mix ci
+      ```
+      """
     end
 
     defp put_preferred_ci_env(igniter) do

@@ -61,13 +61,21 @@ mix igniter.install vibe_kit --no-strict-clones
 mix igniter.install vibe_kit --no-ex-slop
 ```
 
+Optionally add agent instruction files:
+
+```sh
+mix igniter.install vibe_kit --agents-md
+mix igniter.install vibe_kit --claude-md
+```
+
 Options can be combined:
 
 ```sh
 mix igniter.new my_lib \
   --install vibe_kit \
   --no-reach \
-  --no-ex-slop
+  --no-ex-slop \
+  --agents-md
 ```
 
 ## Installation

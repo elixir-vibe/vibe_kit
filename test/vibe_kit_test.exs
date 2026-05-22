@@ -30,6 +30,20 @@ defmodule VibeKitTest do
     assert reach_exs == "[]\n"
   end
 
+  test "installer can add optional agent instruction files" do
+    igniter =
+      test_project()
+      |> Igniter.compose_task("vibe_kit.install", ["--agents-md", "--claude-md"])
+
+    agents_md = file_content(igniter, "AGENTS.md")
+    claude_md = file_content(igniter, "CLAUDE.md")
+
+    assert agents_md =~ "# Agent Guidelines"
+    assert agents_md =~ "mix ci"
+    assert claude_md =~ "# CLAUDE.md"
+    assert claude_md =~ "AGENTS.md"
+  end
+
   test "installer can disable strict optional checks" do
     igniter =
       test_project()
@@ -48,6 +62,8 @@ defmodule VibeKitTest do
     assert mix_exs =~ "ex_dna"
     refute has_file?(igniter, ".credo.exs")
     refute has_file?(igniter, ".reach.exs")
+    refute has_file?(igniter, "AGENTS.md")
+    refute has_file?(igniter, "CLAUDE.md")
   end
 
   defp file_content(igniter, path) do
