@@ -12,6 +12,10 @@ defmodule VibeKit.MixProject do
       start_permanent: Mix.env() == :prod,
       description: "Igniter installer for Elixir Vibe project conventions",
       aliases: aliases(),
+      dialyzer: [
+        plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
+        plt_add_apps: [:mix]
+      ],
       package: package(),
       docs: docs(),
       deps: deps()
@@ -31,7 +35,10 @@ defmodule VibeKit.MixProject do
       ci: [
         "compile --warnings-as-errors",
         "format --check-formatted",
-        "test"
+        "test",
+        "credo --strict",
+        "dialyzer",
+        "ex_dna"
       ]
     ]
   end
@@ -39,6 +46,9 @@ defmodule VibeKit.MixProject do
   defp deps do
     [
       {:igniter, "~> 0.7", optional: true},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end

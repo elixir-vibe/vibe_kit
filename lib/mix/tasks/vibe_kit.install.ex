@@ -4,6 +4,9 @@ if Code.ensure_loaded?(Igniter) do
   defmodule Mix.Tasks.VibeKit.Install do
     use Igniter.Mix.Task
 
+    alias Igniter.Code.Keyword, as: CodeKeyword
+    alias Igniter.Project.{Deps, MixProject, TaskAliases}
+
     @example "mix igniter.install vibe_kit"
     @shortdoc "Installs Elixir Vibe project conventions"
 
@@ -56,7 +59,7 @@ if Code.ensure_loaded?(Igniter) do
       igniter
       |> add_dependencies(options)
       |> put_preferred_ci_env()
-      |> Igniter.Project.TaskAliases.add_alias(:ci, ci_steps(options), if_exists: :warn)
+      |> TaskAliases.add_alias(:ci, ci_steps(options), if_exists: :warn)
     end
 
     defp deps(argv) do
@@ -69,18 +72,18 @@ if Code.ensure_loaded?(Igniter) do
       options
       |> deps_for_options()
       |> Enum.reduce(igniter, fn dep, igniter ->
-        Igniter.Project.Deps.add_dep(igniter, dep, on_exists: :skip)
+        Deps.add_dep(igniter, dep, on_exists: :skip)
       end)
     end
 
     defp deps_for_options(options) do
       [
-        {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-        {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-        {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false}
+        latest_dep("credo"),
+        latest_dep("dialyxir"),
+        latest_dep("ex_dna")
       ]
-      |> maybe_add(options[:reach], {:reach, "~> 2.6", only: [:dev, :test], runtime: false})
-      |> maybe_add(options[:ex_slop], {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false})
+      |> maybe_add(options[:reach], latest_dep("reach"))
+      |> maybe_add(options[:ex_slop], latest_dep("ex_slop"))
     end
 
     defp parse_options(argv) do
@@ -90,6 +93,24 @@ if Code.ensure_loaded?(Igniter) do
         )
 
       options
+    end
+
+    defp latest_dep(package) do
+      package
+      |> Deps.determine_dep_type_and_version!()
+      |> add_dev_test_opts()
+    end
+
+    defp add_dev_test_opts({name, version}) when is_binary(version) do
+      {name, version, only: [:dev, :test], runtime: false}
+    end
+
+    defp add_dev_test_opts({name, version, opts}) when is_binary(version) do
+      {name, version, Keyword.merge(opts, only: [:dev, :test], runtime: false)}
+    end
+
+    defp add_dev_test_opts({name, opts}) when is_list(opts) do
+      {name, Keyword.merge(opts, only: [:dev, :test], runtime: false)}
     end
 
     defp maybe_add(deps, true, dep), do: deps ++ [dep]
@@ -109,12 +130,12 @@ if Code.ensure_loaded?(Igniter) do
     end
 
     defp put_preferred_ci_env(igniter) do
-      Igniter.Project.MixProject.update(igniter, :cli, [:preferred_envs], fn
+      MixProject.update(igniter, :cli, [:preferred_envs], fn
         nil ->
           {:ok, {:code, [ci: :test]}}
 
         zipper ->
-          Igniter.Code.Keyword.set_keyword_key(zipper, :ci, quote(do: :test), nil)
+          CodeKeyword.set_keyword_key(zipper, :ci, quote(do: :test), nil)
       end)
     end
   end
