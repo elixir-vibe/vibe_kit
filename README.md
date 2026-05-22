@@ -120,7 +120,7 @@ This enables ExSlop's recommended high-signal checks automatically.
 ```elixir
 def deps do
   [
-    {:vibe_kit, "~> 0.1.0", only: [:dev, :test], runtime: false}
+    {:vibe_kit, "~> 0.1.1", only: [:dev, :test], runtime: false}
   ]
 end
 ```
