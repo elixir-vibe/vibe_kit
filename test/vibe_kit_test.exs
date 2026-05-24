@@ -30,6 +30,30 @@ defmodule VibeKitTest do
     assert reach_exs == "[]\n"
   end
 
+  test "installer adds ExSlop to existing credo config" do
+    igniter =
+      test_project(
+        files: %{
+          ".credo.exs" => """
+          %{
+            configs: [
+              %{
+                name: "default",
+                checks: []
+              }
+            ]
+          }
+          """
+        }
+      )
+      |> Igniter.compose_task("vibe_kit.install", [])
+
+    credo_exs = file_content(igniter, ".credo.exs")
+
+    assert credo_exs =~ "plugins: [{ExSlop, []}]"
+    assert credo_exs =~ "checks: []"
+  end
+
   test "installer can add optional agent instruction files" do
     igniter =
       test_project()

@@ -127,17 +127,51 @@ defmodule VibeKit.Install do
   defp maybe_create_or_update(igniter, _enabled, _path, _content, _updater), do: igniter
 
   defp patch_credo_config(content) do
-    cond do
-      String.contains?(content, "ExSlop") ->
-        content
+    content
+    |> Code.string_to_quoted!()
+    |> patch_credo_ast()
+    |> Macro.to_string()
+    |> Kernel.<>("\n")
+  end
 
-      String.contains?(content, "plugins: [") ->
-        String.replace(content, "plugins: [", "plugins: [{ExSlop, []}, ", global: false)
+  defp patch_credo_ast(ast) do
+    case ExAST.Pattern.match(ast, quote(do: %{configs: configs})) do
+      {:ok, %{configs: configs}} ->
+        ExAST.Patcher.replace_all(
+          ast,
+          quote(do: %{configs: configs}),
+          {:%{}, [], [configs: Enum.map(configs, &put_ex_slop_plugin_ast/1)]}
+        )
 
-      true ->
-        content <> "\n" <> Templates.credo_config()
+      :error ->
+        Code.string_to_quoted!(Templates.credo_config())
     end
   end
+
+  def put_ex_slop_plugin_ast({:%{}, meta, pairs} = config) do
+    if default_credo_config?(pairs), do: {:%{}, meta, upsert_ex_slop_plugins(pairs)}, else: config
+  end
+
+  def put_ex_slop_plugin_ast(config), do: config
+
+  defp default_credo_config?(pairs), do: Keyword.get(pairs, :name) == "default"
+
+  defp upsert_ex_slop_plugins(pairs) do
+    case Keyword.fetch(pairs, :plugins) do
+      {:ok, plugins} -> Keyword.put(pairs, :plugins, prepend_ex_slop_plugin(plugins))
+      :error -> pairs ++ [plugins: [ex_slop_plugin_ast()]]
+    end
+  end
+
+  defp prepend_ex_slop_plugin(plugins) when is_list(plugins) do
+    if Enum.any?(plugins, &ex_slop_plugin?/1), do: plugins, else: [ex_slop_plugin_ast() | plugins]
+  end
+
+  defp prepend_ex_slop_plugin(plugins), do: plugins
+
+  defp ex_slop_plugin?(ast), do: Macro.to_string(ast) == "{ExSlop, []}"
+
+  defp ex_slop_plugin_ast, do: {:{}, [], [{:__aliases__, [alias: false], [:ExSlop]}, []]}
 
   defp put_preferred_ci_env(igniter) do
     MixProject.update(igniter, :cli, [:preferred_envs], fn
