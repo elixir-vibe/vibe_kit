@@ -4,7 +4,7 @@ defmodule VibeKit.Install.Templates do
   def credo_config, do: read_template("credo.exs")
   def reach_config, do: read_template("reach.exs")
   def agents_md, do: read_template("AGENTS.md")
-  def claude_md, do: read_template("CLAUDE.md")
+  def claude_md, do: agents_md()
 
   defp read_template(name) do
     :vibe_kit

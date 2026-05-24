@@ -40,8 +40,7 @@ defmodule VibeKitTest do
 
     assert agents_md =~ "# Agent Guidelines"
     assert agents_md =~ "mix ci"
-    assert claude_md =~ "# CLAUDE.md"
-    assert claude_md =~ "AGENTS.md"
+    assert agents_md == claude_md
   end
 
   test "installer can disable strict optional checks" do
