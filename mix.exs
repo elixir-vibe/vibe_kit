@@ -8,7 +8,7 @@ defmodule VibeKit.MixProject do
     [
       app: :vibe_kit,
       version: @version,
-      elixir: "~> 1.15",
+      elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       description: "Igniter installer for Elixir Vibe project conventions",
       aliases: aliases(),
