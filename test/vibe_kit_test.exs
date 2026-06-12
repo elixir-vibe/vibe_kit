@@ -19,6 +19,8 @@ defmodule VibeKitTest do
     assert mix_exs =~ ~r/{:ex_dna, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
     assert mix_exs =~ ~r/{:ex_slop, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
     assert mix_exs =~ ~r/{:reach, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
+    assert mix_exs =~ "dialyzer: [plt_add_apps: [:ex_unit]]"
+    assert mix_exs =~ "format"
     assert mix_exs =~ "compile --warnings-as-errors"
     assert mix_exs =~ "format --check-formatted"
     assert mix_exs =~ "test"
@@ -27,6 +29,8 @@ defmodule VibeKitTest do
     assert mix_exs =~ "ex_dna --max-clones 0"
     assert mix_exs =~ "reach.check --arch --smells"
     assert credo_exs =~ "plugins: [{ExSlop, []}]"
+    assert credo_exs =~ "{Credo.Check.Design.AliasUsage, false}"
+    assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
     assert reach_exs == "[]\n"
   end
 
@@ -51,7 +55,8 @@ defmodule VibeKitTest do
     credo_exs = file_content(igniter, ".credo.exs")
 
     assert credo_exs =~ "plugins: [{ExSlop, []}]"
-    assert credo_exs =~ "checks: []"
+    assert credo_exs =~ "{Credo.Check.Design.AliasUsage, false}"
+    assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
   end
 
   test "installer can add optional agent instruction files" do

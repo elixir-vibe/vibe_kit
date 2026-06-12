@@ -2,6 +2,7 @@ defmodule VibeKit.Install do
   @moduledoc false
 
   alias Igniter.Code.Keyword, as: CodeKeyword
+  alias Igniter.Code.List, as: CodeList
   alias Igniter.Project.{Deps, MixProject, TaskAliases}
   alias Rewrite.Source
   alias VibeKit.Install.{Options, Templates}
@@ -18,6 +19,7 @@ defmodule VibeKit.Install do
     igniter
     |> add_dependencies(options)
     |> put_preferred_ci_env()
+    |> put_test_plt_apps()
     |> TaskAliases.add_alias(:ci, ci_steps(options), if_exists: :warn)
     |> configure_ex_slop(options)
     |> configure_reach(options)
@@ -65,6 +67,7 @@ defmodule VibeKit.Install do
 
   defp ci_steps(options) do
     [
+      "format",
       "compile --warnings-as-errors",
       "format --check-formatted",
       "test",
@@ -159,12 +162,20 @@ defmodule VibeKit.Install do
   end
 
   def put_ex_slop_plugin_ast({:%{}, meta, pairs} = config) do
-    if default_credo_config?(pairs), do: {:%{}, meta, upsert_ex_slop_plugins(pairs)}, else: config
+    if default_credo_config?(pairs),
+      do: {:%{}, meta, patch_default_credo_config(pairs)},
+      else: config
   end
 
   def put_ex_slop_plugin_ast(config), do: config
 
   defp default_credo_config?(pairs), do: Keyword.get(pairs, :name) == "default"
+
+  defp patch_default_credo_config(pairs) do
+    pairs
+    |> upsert_ex_slop_plugins()
+    |> upsert_relaxed_generated_checks()
+  end
 
   defp upsert_ex_slop_plugins(pairs) do
     case Keyword.fetch(pairs, :plugins) do
@@ -183,6 +194,26 @@ defmodule VibeKit.Install do
 
   defp ex_slop_plugin_ast, do: {:{}, [], [{:__aliases__, [alias: false], [:ExSlop]}, []]}
 
+  defp upsert_relaxed_generated_checks(pairs) do
+    checks = Keyword.get(pairs, :checks, [])
+
+    existing = MapSet.new(checks, &Macro.to_string/1)
+
+    missing =
+      Enum.reject(relaxed_generated_checks(), fn check ->
+        MapSet.member?(existing, Macro.to_string(check))
+      end)
+
+    Keyword.put(pairs, :checks, checks ++ missing)
+  end
+
+  defp relaxed_generated_checks do
+    [
+      {{:__aliases__, [alias: false], [:Credo, :Check, :Design, :AliasUsage]}, false},
+      {{:__aliases__, [alias: false], [:ExSlop, :Check, :Readability, :NarratorDoc]}, false}
+    ]
+  end
+
   defp put_preferred_ci_env(igniter) do
     MixProject.update(igniter, :cli, [:preferred_envs], fn
       nil ->
@@ -190,6 +221,20 @@ defmodule VibeKit.Install do
 
       zipper ->
         CodeKeyword.set_keyword_key(zipper, :ci, quote(do: :test), nil)
+    end)
+  end
+
+  defp put_test_plt_apps(igniter) do
+    MixProject.update(igniter, :project, [:dialyzer, :plt_add_apps], fn
+      nil ->
+        {:ok, {:code, [:ex_unit]}}
+
+      zipper ->
+        if zipper.node |> Macro.expand(__ENV__) |> List.wrap() |> Enum.member?(:ex_unit) do
+          {:ok, zipper}
+        else
+          CodeList.append_to_list(zipper, :ex_unit)
+        end
     end)
   end
 end
