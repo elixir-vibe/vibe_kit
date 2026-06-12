@@ -12,6 +12,20 @@ defmodule VibeKit.MixProject do
       start_permanent: Mix.env() == :prod,
       description: "Igniter installer for Elixir Vibe project conventions",
       aliases: aliases(),
+      elixirc_options: [
+        no_warn_undefined: [
+          {ExAST.Patcher, :replace_all, 3},
+          {ExAST.Pattern, :match, 2},
+          {Igniter, :create_or_update_file, 4},
+          {Igniter.Code.Keyword, :set_keyword_key, 4},
+          {Igniter.Code.List, :append_to_list, 2},
+          {Igniter.Project.Deps, :add_dep, 3},
+          {Igniter.Project.Deps, :determine_dep_type_and_version!, 1},
+          {Igniter.Project.MixProject, :update, 4},
+          {Igniter.Project.TaskAliases, :add_alias, 4},
+          {Rewrite.Source, :update, 3}
+        ]
+      ],
       dialyzer: [
         plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
         plt_add_apps: [:mix]
