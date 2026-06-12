@@ -107,7 +107,7 @@ defmodule VibeKit.Install do
       "AGENTS.md",
       Templates.agents_md(),
       fn source ->
-        source
+        Source.update(source, :content, &merge_agents_md/1)
       end
     )
     |> maybe_create_or_update(
@@ -115,7 +115,7 @@ defmodule VibeKit.Install do
       "CLAUDE.md",
       Templates.claude_md(),
       fn source ->
-        source
+        Source.update(source, :content, &merge_agents_md/1)
       end
     )
   end
@@ -125,6 +125,16 @@ defmodule VibeKit.Install do
   end
 
   defp maybe_create_or_update(igniter, _enabled, _path, _content, _updater), do: igniter
+
+  defp merge_agents_md(content) do
+    marker = "## VibeKit quality gate"
+
+    if String.contains?(content, marker) do
+      content
+    else
+      content <> "\n\n" <> Templates.agents_md()
+    end
+  end
 
   defp patch_credo_config(content) do
     content

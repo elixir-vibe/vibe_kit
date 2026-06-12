@@ -62,9 +62,21 @@ defmodule VibeKitTest do
     agents_md = file_content(igniter, "AGENTS.md")
     claude_md = file_content(igniter, "CLAUDE.md")
 
-    assert agents_md =~ "# Agent Guidelines"
+    assert agents_md =~ "# VibeKit quality gate"
     assert agents_md =~ "mix ci"
     assert agents_md == claude_md
+  end
+
+  test "installer appends VibeKit guidance to existing agent instructions" do
+    igniter =
+      test_project(files: %{"AGENTS.md" => "# Phoenix Guidelines\n\nUse mix precommit.\n"})
+      |> Igniter.compose_task("vibe_kit.install", ["--agents-md"])
+
+    agents_md = file_content(igniter, "AGENTS.md")
+
+    assert agents_md =~ "# Phoenix Guidelines"
+    assert agents_md =~ "# VibeKit quality gate"
+    assert agents_md =~ "treat this VibeKit section as the final quality gate"
   end
 
   test "installer can disable strict optional checks" do
