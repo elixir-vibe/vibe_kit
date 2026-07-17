@@ -67,7 +67,6 @@ defmodule VibeKit.Install do
 
   defp ci_steps(options) do
     [
-      "format",
       "compile --warnings-as-errors",
       "format --check-formatted",
       "test",
@@ -195,17 +194,65 @@ defmodule VibeKit.Install do
   defp ex_slop_plugin_ast, do: {:{}, [], [{:__aliases__, [alias: false], [:ExSlop]}, []]}
 
   defp upsert_relaxed_generated_checks(pairs) do
-    checks = Keyword.get(pairs, :checks, [])
+    case Keyword.get(pairs, :checks, []) do
+      {:%{}, meta, check_groups} ->
+        Keyword.put(pairs, :checks, {:%{}, meta, relax_grouped_checks(check_groups)})
 
-    existing = MapSet.new(checks, &Macro.to_string/1)
+      checks when is_list(checks) ->
+        Keyword.put(pairs, :checks, append_missing_relaxed_checks(checks))
 
-    missing =
-      Enum.reject(relaxed_generated_checks(), fn check ->
-        MapSet.member?(existing, Macro.to_string(check))
-      end)
-
-    Keyword.put(pairs, :checks, checks ++ missing)
+      _other ->
+        pairs
+    end
   end
+
+  defp relax_grouped_checks(check_groups) do
+    relaxed_names = MapSet.new(relaxed_generated_checks(), &check_name/1)
+
+    enabled =
+      check_groups
+      |> Keyword.get(:enabled, [])
+      |> reject_checks(relaxed_names)
+      |> append_missing_ex_slop_checks()
+
+    disabled = check_groups |> Keyword.get(:disabled, []) |> append_missing_relaxed_checks()
+
+    check_groups
+    |> Keyword.put(:enabled, enabled)
+    |> Keyword.put(:disabled, disabled)
+  end
+
+  defp reject_checks(checks, names) when is_list(checks) do
+    Enum.reject(checks, &MapSet.member?(names, check_name(&1)))
+  end
+
+  defp reject_checks(checks, _names), do: checks
+
+  defp append_missing_relaxed_checks(checks) do
+    append_missing_checks(checks, relaxed_generated_checks())
+  end
+
+  defp append_missing_ex_slop_checks(checks) do
+    relaxed_names = MapSet.new(relaxed_generated_checks(), &check_name/1)
+
+    desired =
+      ExSlop.recommended_checks()
+      |> Enum.map(fn module -> {Code.string_to_quoted!(inspect(module)), []} end)
+      |> Enum.reject(&MapSet.member?(relaxed_names, check_name(&1)))
+
+    append_missing_checks(checks, desired)
+  end
+
+  defp append_missing_checks(checks, desired) do
+    existing_names = MapSet.new(checks, &check_name/1)
+    missing = Enum.reject(desired, &MapSet.member?(existing_names, check_name(&1)))
+
+    checks ++ missing
+  end
+
+  defp check_name({:{}, _meta, [module | _rest]}), do: Macro.to_string(module)
+  defp check_name({module, _opts}), do: Macro.to_string(module)
+  defp check_name(check), do: Macro.to_string(check)
 
   defp relaxed_generated_checks do
     [
@@ -230,11 +277,23 @@ defmodule VibeKit.Install do
         {:ok, {:code, [:ex_unit]}}
 
       zipper ->
-        if zipper.node |> Macro.expand(__ENV__) |> List.wrap() |> Enum.member?(:ex_unit) do
+        if literal_list_member?(zipper.node, :ex_unit) do
           {:ok, zipper}
         else
           CodeList.append_to_list(zipper, :ex_unit)
         end
     end)
   end
+
+  defp literal_list_member?({:__block__, _meta, [value]}, item),
+    do: literal_list_member?(value, item)
+
+  defp literal_list_member?(values, item) when is_list(values) do
+    Enum.any?(values, fn
+      {:__block__, _meta, [value]} -> value == item
+      value -> value == item
+    end)
+  end
+
+  defp literal_list_member?(_value, _item), do: false
 end

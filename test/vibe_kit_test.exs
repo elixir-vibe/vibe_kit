@@ -20,7 +20,7 @@ defmodule VibeKitTest do
     assert mix_exs =~ ~r/{:ex_slop, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
     assert mix_exs =~ ~r/{:reach, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
     assert mix_exs =~ "dialyzer: [plt_add_apps: [:ex_unit]]"
-    assert mix_exs =~ "format"
+    refute mix_exs =~ ~s(\n        "format",\n)
     assert mix_exs =~ "compile --warnings-as-errors"
     assert mix_exs =~ "format --check-formatted"
     assert mix_exs =~ "test"
@@ -59,6 +59,44 @@ defmodule VibeKitTest do
     assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
   end
 
+  test "installer adds ExSlop to grouped Credo checks" do
+    igniter =
+      test_project(
+        files: %{
+          ".credo.exs" => """
+          %{
+            configs: [
+              %{
+                name: "default",
+                checks: %{
+                  enabled: [
+                    {Credo.Check.Design.AliasUsage, []},
+                    {Credo.Check.Warning.Dbg, []}
+                  ],
+                  disabled: [
+                    {Credo.Check.Design.TagTODO, []}
+                  ]
+                }
+              }
+            ]
+          }
+          """
+        }
+      )
+      |> Igniter.compose_task("vibe_kit.install", [])
+
+    credo_exs = file_content(igniter, ".credo.exs")
+
+    assert credo_exs =~ "plugins: [{ExSlop, []}]"
+    assert credo_exs =~ "{Credo.Check.Warning.Dbg, []}"
+    assert credo_exs =~ "{Credo.Check.Design.TagTODO, []}"
+    assert credo_exs =~ "{Credo.Check.Design.AliasUsage, false}"
+    assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
+    assert credo_exs =~ "{ExSlop.Check.Warning.BlanketRescue, []}"
+    refute credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, []}"
+    refute credo_exs =~ "enabled: [{Credo.Check.Design.AliasUsage, []}"
+  end
+
   test "installer can add optional agent instruction files" do
     igniter =
       test_project()
@@ -82,6 +120,18 @@ defmodule VibeKitTest do
     assert agents_md =~ "# Phoenix Guidelines"
     assert agents_md =~ "# VibeKit quality gate"
     assert agents_md =~ "treat this VibeKit section as the final quality gate"
+  end
+
+  test "installer preserves an existing ExUnit Dialyzer PLT entry" do
+    igniter =
+      test_project()
+      |> Igniter.compose_task("vibe_kit.install", [])
+      |> Igniter.compose_task("vibe_kit.install", [])
+
+    mix_exs = file_content(igniter, "mix.exs")
+
+    assert mix_exs =~ "dialyzer: [plt_add_apps: [:ex_unit]]"
+    refute mix_exs =~ "[:ex_unit, :ex_unit]"
   end
 
   test "installer can disable strict optional checks" do
