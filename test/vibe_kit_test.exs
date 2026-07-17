@@ -122,14 +122,18 @@ defmodule VibeKitTest do
     assert agents_md =~ "treat this VibeKit section as the final quality gate"
   end
 
-  test "installer preserves an existing ExUnit Dialyzer PLT entry" do
-    igniter =
+  test "installer is idempotent" do
+    installed =
       test_project()
       |> Igniter.compose_task("vibe_kit.install", [])
-      |> Igniter.compose_task("vibe_kit.install", [])
 
-    mix_exs = file_content(igniter, "mix.exs")
+    reinstalled = Igniter.compose_task(installed, "vibe_kit.install", [])
 
+    assert file_content(reinstalled, "mix.exs") == file_content(installed, "mix.exs")
+    assert file_content(reinstalled, ".credo.exs") == file_content(installed, ".credo.exs")
+    assert file_content(reinstalled, ".reach.exs") == file_content(installed, ".reach.exs")
+
+    mix_exs = file_content(reinstalled, "mix.exs")
     assert mix_exs =~ "dialyzer: [plt_add_apps: [:ex_unit]]"
     refute mix_exs =~ "[:ex_unit, :ex_unit]"
   end

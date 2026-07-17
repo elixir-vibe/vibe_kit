@@ -178,8 +178,11 @@ defmodule VibeKit.Install do
 
   defp upsert_ex_slop_plugins(pairs) do
     case Keyword.fetch(pairs, :plugins) do
-      {:ok, plugins} -> Keyword.put(pairs, :plugins, prepend_ex_slop_plugin(plugins))
-      :error -> pairs ++ [plugins: [ex_slop_plugin_ast()]]
+      {:ok, plugins} ->
+        put_keyword_if_changed(pairs, :plugins, plugins, prepend_ex_slop_plugin(plugins))
+
+      :error ->
+        pairs ++ [plugins: [ex_slop_plugin_ast()]]
     end
   end
 
@@ -194,39 +197,43 @@ defmodule VibeKit.Install do
   defp ex_slop_plugin_ast, do: {:{}, [], [{:__aliases__, [alias: false], [:ExSlop]}, []]}
 
   defp upsert_relaxed_generated_checks(pairs) do
-    case Keyword.get(pairs, :checks, []) do
-      {:%{}, meta, check_groups} ->
-        Keyword.put(pairs, :checks, {:%{}, meta, relax_grouped_checks(check_groups)})
+    checks = Keyword.get(pairs, :checks, [])
 
-      checks when is_list(checks) ->
-        Keyword.put(pairs, :checks, append_missing_relaxed_checks(checks))
+    updated_checks =
+      case checks do
+        {:%{}, meta, check_groups} -> {:%{}, meta, relax_grouped_checks(check_groups)}
+        checks when is_list(checks) -> append_missing_relaxed_checks(checks)
+        _other -> checks
+      end
 
-      _other ->
-        pairs
-    end
+    put_keyword_if_changed(pairs, :checks, checks, updated_checks)
   end
 
   defp relax_grouped_checks(check_groups) do
     relaxed_names = MapSet.new(relaxed_generated_checks(), &check_name/1)
+    original_enabled = Keyword.get(check_groups, :enabled, [])
+    original_disabled = Keyword.get(check_groups, :disabled, [])
 
     enabled =
-      check_groups
-      |> Keyword.get(:enabled, [])
+      original_enabled
       |> reject_checks(relaxed_names)
       |> append_missing_ex_slop_checks()
 
-    disabled = check_groups |> Keyword.get(:disabled, []) |> append_missing_relaxed_checks()
+    disabled = append_missing_relaxed_checks(original_disabled)
 
     check_groups
-    |> Keyword.put(:enabled, enabled)
-    |> Keyword.put(:disabled, disabled)
+    |> put_keyword_if_changed(:enabled, original_enabled, enabled)
+    |> put_keyword_if_changed(:disabled, original_disabled, disabled)
   end
 
-  defp reject_checks(checks, names) when is_list(checks) do
+  defp put_keyword_if_changed(keyword, _key, value, value), do: keyword
+
+  defp put_keyword_if_changed(keyword, key, _current, updated),
+    do: Keyword.put(keyword, key, updated)
+
+  defp reject_checks(checks, names) do
     Enum.reject(checks, &MapSet.member?(names, check_name(&1)))
   end
-
-  defp reject_checks(checks, _names), do: checks
 
   defp append_missing_relaxed_checks(checks) do
     append_missing_checks(checks, relaxed_generated_checks())
