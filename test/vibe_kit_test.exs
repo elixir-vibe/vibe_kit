@@ -31,10 +31,21 @@ defmodule VibeKitTest do
     assert credo_exs =~ "plugins: [{ExSlop, []}]"
     assert credo_exs =~ "{Credo.Check.Design.AliasUsage, false}"
     assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
-    assert reach_exs == "[]\n"
+    assert reach_exs =~ ~s(#   foundation: ["MyApp.Core.*", "MyApp.Domain.*"])
+    assert reach_exs =~ "#     {:foundation, :services}"
+    assert reach_exs =~ "#     {:foundation, :presentation}"
+    assert reach_exs =~ "#     {:services, :presentation}"
+    assert {[], []} = Code.eval_string(reach_exs)
   end
 
   test "installer adds ExSlop to existing credo config" do
+    existing_reach = """
+    [
+      layers: [domain: "MyApp.Domain.*", web: "MyAppWeb.*"],
+      deps: [forbidden: [{:domain, :web}]]
+    ]
+    """
+
     igniter =
       test_project(
         files: %{
@@ -47,7 +58,8 @@ defmodule VibeKitTest do
               }
             ]
           }
-          """
+          """,
+          ".reach.exs" => existing_reach
         }
       )
       |> Igniter.compose_task("vibe_kit.install", [])
@@ -57,6 +69,7 @@ defmodule VibeKitTest do
     assert credo_exs =~ "plugins: [{ExSlop, []}]"
     assert credo_exs =~ "{Credo.Check.Design.AliasUsage, false}"
     assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
+    assert file_content(igniter, ".reach.exs") == existing_reach
   end
 
   test "installer adds ExSlop to grouped Credo checks" do
@@ -107,6 +120,7 @@ defmodule VibeKitTest do
 
     assert agents_md =~ "# VibeKit quality gate"
     assert agents_md =~ "mix ci"
+    assert agents_md =~ "active rules in `.reach.exs`"
     assert agents_md == claude_md
   end
 

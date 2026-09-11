@@ -49,13 +49,26 @@ It also adds:
 - `.credo.exs` with ExSlop's recommended plugin checks enabled
 - `.reach.exs` as a starting point for Reach architecture policy
 
-The generated `.reach.exs` starts as:
+The generated `.reach.exs` starts with a commented three-layer example:
 
 ```elixir
-[]
+[
+  # layers: [
+  #   foundation: ["MyApp.Core.*", "MyApp.Domain.*"],
+  #   services: ["MyApp.Services.*", "MyApp.Infrastructure.*"],
+  #   presentation: ["MyAppWeb.*", "MyApp.CLI.*"]
+  # ],
+  # deps: [
+  #   forbidden: [
+  #     {:foundation, :services},
+  #     {:foundation, :presentation},
+  #     {:services, :presentation}
+  #   ]
+  # ]
+]
 ```
 
-Add project-specific layer, boundary, source, and call policies as the architecture settles.
+Replace the example namespaces with project modules and uncomment the rules when the architecture settles. The example enforces one-way dependencies: foundations cannot depend on services or presentation, and services cannot depend on presentation. Keep project-specific module assignments and exceptions in the consuming project rather than VibeKit.
 
 ## Included tools
 
