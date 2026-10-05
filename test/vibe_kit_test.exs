@@ -2,174 +2,190 @@ defmodule VibeKitTest do
   use ExUnit.Case
   import Igniter.Test
 
+  alias VibeKit.Install.Templates
+
+  @flat_credo """
+  %{
+    configs: [
+      %{
+        name: "default",
+        checks: []
+      }
+    ]
+  }
+  """
+
+  @grouped_credo """
+  %{
+    configs: [
+      %{
+        name: "default",
+        checks: %{
+          enabled: [
+            {Credo.Check.Design.AliasUsage, []},
+            {Credo.Check.Warning.Dbg, []}
+          ],
+          disabled: [
+            {Credo.Check.Design.TagTODO, []}
+          ]
+        }
+      }
+    ]
+  }
+  """
+
   test "installer adds strict CI conventions by default" do
-    igniter =
-      test_project()
-      |> Igniter.compose_task("vibe_kit.install", [])
-
-    mix_exs = file_content(igniter, "mix.exs")
-    credo_exs = file_content(igniter, ".credo.exs")
-    reach_exs = file_content(igniter, ".reach.exs")
-
-    assert mix_exs =~ "aliases: aliases()"
-    assert mix_exs =~ "def cli do"
-    assert mix_exs =~ "preferred_envs: [ci: :test]"
-    assert mix_exs =~ ~r/{:credo, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
-    assert mix_exs =~ ~r/{:dialyxir, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
-    assert mix_exs =~ ~r/{:ex_dna, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
-    assert mix_exs =~ ~r/{:ex_slop, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
-    assert mix_exs =~ ~r/{:reach, "~> \d+\.\d+", only: \[:dev, :test\], runtime: false}/
-    assert mix_exs =~ "dialyzer: [plt_add_apps: [:ex_unit]]"
-    refute mix_exs =~ ~s(\n        "format",\n)
-    assert mix_exs =~ "compile --warnings-as-errors"
-    assert mix_exs =~ "format --check-formatted"
-    assert mix_exs =~ "test"
-    assert mix_exs =~ "credo --strict"
-    assert mix_exs =~ "dialyzer"
-    assert mix_exs =~ "ex_dna --max-clones 0"
-    assert mix_exs =~ "reach.check --arch --smells"
-    assert credo_exs =~ "plugins: [{ExSlop, []}]"
-    assert credo_exs =~ "{Credo.Check.Design.AliasUsage, false}"
-    assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
-    assert reach_exs == "[]\n"
+    test_project()
+    |> Igniter.compose_task("vibe_kit.install", [])
+    |> assert_has_patch("mix.exs", """
+    + |      deps: deps(),
+    + |      dialyzer: [plt_add_apps: [:ex_unit]],
+    + |      aliases: aliases()
+    """)
+    |> assert_has_patch("mix.exs", """
+    + |  def cli do
+    + |    [
+    + |      preferred_envs: [ci: :test]
+    + |    ]
+    + |  end
+    """)
+    |> assert_has_patch("mix.exs", """
+    + |      {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false},
+    + |      {:reach, "~> 2.8", only: [:dev, :test], runtime: false},
+    + |      {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
+    + |      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+    + |      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+    """)
+    |> assert_has_patch("mix.exs", """
+    + |      ci: [
+    + |        "compile --warnings-as-errors",
+    + |        "format --check-formatted",
+    + |        "test",
+    + |        "credo --strict",
+    + |        "dialyzer",
+    + |        "ex_dna --max-clones 0",
+    + |        "reach.check --arch --smells"
+    + |      ]
+    """)
+    |> assert_creates(".credo.exs", Templates.credo_config())
+    |> assert_creates(".reach.exs", "[]\n")
+    |> refute_creates("AGENTS.md")
+    |> refute_creates("CLAUDE.md")
   end
 
-  test "installer adds ExSlop to existing credo config" do
-    igniter =
-      test_project(
-        files: %{
-          ".credo.exs" => """
-          %{
-            configs: [
-              %{
-                name: "default",
-                checks: []
-              }
-            ]
-          }
-          """
+  test "installed tool requirements match the versions VibeKit is tested against" do
+    project_deps = Mix.Project.config()[:deps]
+
+    for {name, requirement} <- VibeKit.Install.tool_deps() do
+      assert {^name, ^requirement, _opts} = List.keyfind(project_deps, name, 0)
+    end
+  end
+
+  test "installer task keeps vibe_kit out of runtime deps" do
+    info = Mix.Tasks.VibeKit.Install.info([], nil)
+
+    assert info.only == [:dev, :test]
+    assert info.dep_opts == [runtime: false]
+  end
+
+  test "installer adds ExSlop to existing credo config in place" do
+    test_project(files: %{".credo.exs" => @flat_credo})
+    |> Igniter.compose_task("vibe_kit.install", [])
+    |> assert_content_equals(".credo.exs", """
+    %{
+      configs: [
+        %{
+          name: "default",
+          checks: [
+            {Credo.Check.Design.AliasUsage, false},
+            {ExSlop.Check.Readability.NarratorDoc, false}
+          ],
+          plugins: [{ExSlop, []}]
         }
-      )
-      |> Igniter.compose_task("vibe_kit.install", [])
-
-    credo_exs = file_content(igniter, ".credo.exs")
-
-    assert credo_exs =~ "plugins: [{ExSlop, []}]"
-    assert credo_exs =~ "{Credo.Check.Design.AliasUsage, false}"
-    assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
+      ]
+    }
+    """)
   end
 
   test "installer adds ExSlop to grouped Credo checks" do
-    igniter =
-      test_project(
-        files: %{
-          ".credo.exs" => """
-          %{
-            configs: [
-              %{
-                name: "default",
-                checks: %{
-                  enabled: [
-                    {Credo.Check.Design.AliasUsage, []},
-                    {Credo.Check.Warning.Dbg, []}
-                  ],
-                  disabled: [
-                    {Credo.Check.Design.TagTODO, []}
-                  ]
-                }
-              }
-            ]
-          }
-          """
-        }
-      )
-      |> Igniter.compose_task("vibe_kit.install", [])
-
-    credo_exs = file_content(igniter, ".credo.exs")
-
-    assert credo_exs =~ "plugins: [{ExSlop, []}]"
-    assert credo_exs =~ "{Credo.Check.Warning.Dbg, []}"
-    assert credo_exs =~ "{Credo.Check.Design.TagTODO, []}"
-    assert credo_exs =~ "{Credo.Check.Design.AliasUsage, false}"
-    assert credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, false}"
-    assert credo_exs =~ "{ExSlop.Check.Warning.BlanketRescue, []}"
-    refute credo_exs =~ "{ExSlop.Check.Readability.NarratorDoc, []}"
-    refute credo_exs =~ "enabled: [{Credo.Check.Design.AliasUsage, []}"
+    test_project(files: %{".credo.exs" => @grouped_credo})
+    |> Igniter.compose_task("vibe_kit.install", [])
+    |> assert_has_patch(".credo.exs", """
+      |      checks: %{
+      |        enabled: [
+    - |          {Credo.Check.Design.AliasUsage, []},
+    - |          {Credo.Check.Warning.Dbg, []}
+    + |          {Credo.Check.Warning.Dbg, []},
+    + |          {ExSlop.Check.Warning.BlanketRescue, []},
+    """)
+    |> assert_has_patch(".credo.exs", """
+      |        ],
+      |        disabled: [
+    - |          {Credo.Check.Design.TagTODO, []}
+    + |          {Credo.Check.Design.TagTODO, []},
+    + |          {Credo.Check.Design.AliasUsage, false},
+    + |          {ExSlop.Check.Readability.NarratorDoc, false}
+      |        ]
+    - |      }
+    + |      },
+    + |      plugins: [{ExSlop, []}]
+    """)
   end
 
   test "installer can add optional agent instruction files" do
-    igniter =
-      test_project()
-      |> Igniter.compose_task("vibe_kit.install", ["--agents-md", "--claude-md"])
-
-    agents_md = file_content(igniter, "AGENTS.md")
-    claude_md = file_content(igniter, "CLAUDE.md")
-
-    assert agents_md =~ "# VibeKit quality gate"
-    assert agents_md =~ "mix ci"
-    assert agents_md == claude_md
+    test_project()
+    |> Igniter.compose_task("vibe_kit.install", ["--agents-md", "--claude-md"])
+    |> assert_creates("AGENTS.md", Templates.agents_md())
+    |> assert_creates("CLAUDE.md", Templates.agents_md())
   end
 
   test "installer appends VibeKit guidance to existing agent instructions" do
-    igniter =
-      test_project(files: %{"AGENTS.md" => "# Phoenix Guidelines\n\nUse mix precommit.\n"})
-      |> Igniter.compose_task("vibe_kit.install", ["--agents-md"])
-
-    agents_md = file_content(igniter, "AGENTS.md")
-
-    assert agents_md =~ "# Phoenix Guidelines"
-    assert agents_md =~ "# VibeKit quality gate"
-    assert agents_md =~ "treat this VibeKit section as the final quality gate"
+    test_project(files: %{"AGENTS.md" => "# Phoenix Guidelines\n\nUse mix precommit.\n"})
+    |> Igniter.compose_task("vibe_kit.install", ["--agents-md"])
+    |> assert_content_equals(
+      "AGENTS.md",
+      "# Phoenix Guidelines\n\nUse mix precommit.\n\n\n" <> Templates.agents_md()
+    )
   end
 
   test "installer is idempotent" do
-    installed =
-      test_project()
-      |> Igniter.compose_task("vibe_kit.install", [])
+    argv = ["--agents-md", "--claude-md"]
 
-    reinstalled = Igniter.compose_task(installed, "vibe_kit.install", [])
+    test_project(files: %{"AGENTS.md" => "# Phoenix Guidelines\n"})
+    |> Igniter.compose_task("vibe_kit.install", argv)
+    |> apply_igniter!()
+    |> Igniter.compose_task("vibe_kit.install", argv)
+    |> assert_unchanged()
+  end
 
-    assert file_content(reinstalled, "mix.exs") == file_content(installed, "mix.exs")
-    assert file_content(reinstalled, ".credo.exs") == file_content(installed, ".credo.exs")
-    assert file_content(reinstalled, ".reach.exs") == file_content(installed, ".reach.exs")
-
-    mix_exs = file_content(reinstalled, "mix.exs")
-    assert mix_exs =~ "dialyzer: [plt_add_apps: [:ex_unit]]"
-    refute mix_exs =~ "[:ex_unit, :ex_unit]"
+  test "installer is idempotent for grouped Credo checks" do
+    test_project(files: %{".credo.exs" => @grouped_credo})
+    |> Igniter.compose_task("vibe_kit.install", [])
+    |> apply_igniter!()
+    |> Igniter.compose_task("vibe_kit.install", [])
+    |> assert_unchanged()
   end
 
   test "installer can disable strict optional checks" do
-    igniter =
-      test_project()
-      |> Igniter.compose_task("vibe_kit.install", [
-        "--no-reach",
-        "--no-strict-clones",
-        "--no-ex-slop"
-      ])
-
-    mix_exs = file_content(igniter, "mix.exs")
-
-    refute mix_exs =~ ":reach"
-    refute mix_exs =~ ":ex_slop"
-    refute mix_exs =~ "ex_dna --max-clones 0"
-    refute mix_exs =~ "reach.check --arch --smells"
-    assert mix_exs =~ "ex_dna"
-    refute has_file?(igniter, ".credo.exs")
-    refute has_file?(igniter, ".reach.exs")
-    refute has_file?(igniter, "AGENTS.md")
-    refute has_file?(igniter, "CLAUDE.md")
-  end
-
-  defp file_content(igniter, path) do
-    igniter.rewrite
-    |> Rewrite.source!(path)
-    |> Rewrite.Source.get(:content)
-  end
-
-  defp has_file?(igniter, path) do
-    case Rewrite.source(igniter.rewrite, path) do
-      {:ok, _source} -> true
-      _ -> false
-    end
+    test_project()
+    |> Igniter.compose_task("vibe_kit.install", [
+      "--no-reach",
+      "--no-strict-clones",
+      "--no-ex-slop"
+    ])
+    |> assert_has_patch("mix.exs", """
+    + |      {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
+    + |      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+    + |      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+    """)
+    |> assert_has_patch("mix.exs", """
+    + |        "dialyzer",
+    + |        "ex_dna"
+    + |      ]
+    """)
+    |> refute_creates(".credo.exs")
+    |> refute_creates(".reach.exs")
+    |> refute_creates("AGENTS.md")
+    |> refute_creates("CLAUDE.md")
   end
 end
