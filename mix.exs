@@ -28,7 +28,7 @@ defmodule VibeKit.MixProject do
       ],
       dialyzer: [
         plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
-        plt_add_apps: [:mix]
+        plt_add_apps: [:mix, :ex_slop]
       ],
       package: package(),
       docs: docs(),
@@ -60,13 +60,13 @@ defmodule VibeKit.MixProject do
 
   defp deps do
     [
-      {:igniter, "~> 0.7", optional: true},
+      {:igniter, "~> 0.8", optional: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
       {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false},
-      {:reach, "~> 2.6", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:reach, "~> 2.8", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false}
     ]
   end
 
