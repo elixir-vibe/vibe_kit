@@ -7,6 +7,21 @@ defmodule VibeKit.Install do
   alias Rewrite.Source
   alias VibeKit.Install.{Options, Templates}
 
+  @agents_md_marker "# VibeKit quality gate"
+
+  # Minimum versions VibeKit is tested against. Igniter's "latest" lookup only
+  # pins the major version (`~> 2.0`), which lets fresh installs resolve stale
+  # minors; keep these in sync with the dev deps in mix.exs.
+  @tool_deps [
+    credo: "~> 1.7",
+    dialyxir: "~> 1.4",
+    ex_dna: "~> 1.5",
+    reach: "~> 2.8",
+    ex_slop: "~> 0.4"
+  ]
+
+  def tool_deps, do: @tool_deps
+
   def deps(argv) do
     argv
     |> Options.parse()
@@ -35,35 +50,10 @@ defmodule VibeKit.Install do
   end
 
   defp deps_for_options(options) do
-    [
-      latest_dep("credo"),
-      latest_dep("dialyxir"),
-      latest_dep("ex_dna")
-    ]
-    |> maybe_add_latest(options[:reach], "reach")
-    |> maybe_add_latest(options[:ex_slop], "ex_slop")
+    for {name, requirement} <- @tool_deps, Keyword.get(options, name, true) do
+      {name, requirement, only: [:dev, :test], runtime: false}
+    end
   end
-
-  defp latest_dep(package) do
-    package
-    |> Deps.determine_dep_type_and_version!()
-    |> add_dev_test_opts()
-  end
-
-  defp add_dev_test_opts({name, version}) when is_binary(version) do
-    {name, version, only: [:dev, :test], runtime: false}
-  end
-
-  defp add_dev_test_opts({name, version, opts}) when is_binary(version) do
-    {name, version, Keyword.merge(opts, only: [:dev, :test], runtime: false)}
-  end
-
-  defp add_dev_test_opts({name, opts}) when is_list(opts) do
-    {name, Keyword.merge(opts, only: [:dev, :test], runtime: false)}
-  end
-
-  defp maybe_add_latest(deps, true, package), do: deps ++ [latest_dep(package)]
-  defp maybe_add_latest(deps, _, _package), do: deps
 
   defp ci_steps(options) do
     [
@@ -129,9 +119,7 @@ defmodule VibeKit.Install do
   defp maybe_create_or_update(igniter, _enabled, _path, _content, _updater), do: igniter
 
   defp merge_agents_md(content) do
-    marker = "## VibeKit quality gate"
-
-    if String.contains?(content, marker) do
+    if String.contains?(content, @agents_md_marker) do
       content
     else
       content <> "\n\n" <> Templates.agents_md()
@@ -160,13 +148,13 @@ defmodule VibeKit.Install do
     end
   end
 
-  def put_ex_slop_plugin_ast({:%{}, meta, pairs} = config) do
+  defp put_ex_slop_plugin_ast({:%{}, meta, pairs} = config) do
     if default_credo_config?(pairs),
       do: {:%{}, meta, patch_default_credo_config(pairs)},
       else: config
   end
 
-  def put_ex_slop_plugin_ast(config), do: config
+  defp put_ex_slop_plugin_ast(config), do: config
 
   defp default_credo_config?(pairs), do: Keyword.get(pairs, :name) == "default"
 
@@ -229,7 +217,7 @@ defmodule VibeKit.Install do
   defp put_keyword_if_changed(keyword, _key, value, value), do: keyword
 
   defp put_keyword_if_changed(keyword, key, _current, updated),
-    do: Keyword.put(keyword, key, updated)
+    do: List.keystore(keyword, key, 0, {key, updated})
 
   defp reject_checks(checks, names) do
     Enum.reject(checks, &MapSet.member?(names, check_name(&1)))

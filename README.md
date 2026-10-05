@@ -45,7 +45,7 @@ ci: [
 It also adds:
 
 - `def cli, do: [preferred_envs: [ci: :test]]`
-- latest Hex versions of the quality-tool dependencies
+- the quality-tool dependencies as `only: [:dev, :test], runtime: false`, pinned to the minor versions VibeKit is tested against
 - `.credo.exs` with ExSlop's recommended plugin checks enabled
 - `.reach.exs` as a starting point for Reach architecture policy
 

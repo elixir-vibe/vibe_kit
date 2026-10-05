@@ -36,6 +36,8 @@ if Code.ensure_loaded?(Igniter) do
       %Igniter.Mix.Task.Info{
         group: :vibe_kit,
         adds_deps: Install.deps(argv),
+        only: [:dev, :test],
+        dep_opts: [runtime: false],
         installs: [],
         example: @example,
         positional: [],
